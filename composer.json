@@ -1,0 +1,20 @@
+{
+    "name": "lifo/php-cisco-ise",
+    "description": "Cisco Identity Services Engine REST API Client",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jason Morriss",
+            "email": "lifo101@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": { "Lifo\\CiscoISE\\": "src" }
+    },
+    "require": {
+        "php": ">=7.1",
+        "ext-simplexml": "*",
+        "symfony/property-access": "^3.0 || ^4.0 || ^5.0"
+    }
+}
