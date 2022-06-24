@@ -10,9 +10,10 @@ class ISEError extends RuntimeException
 {
     private ?object $error;
 
-    public function __construct(?object $error, string $message = '')
+    public function __construct(?object $error, string $message = '', int $code = 0)
     {
         $msg = $message ?: '';
+        $this->code = $code;
         if ($error) {
             $this->error = $error;
             $errors = $this->getErrorMessage();

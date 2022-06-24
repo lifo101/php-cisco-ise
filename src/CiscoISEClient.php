@@ -224,7 +224,7 @@ class CiscoISEClient
         }
 
         if ($this->error) {
-            throw new ISEError(null, $this->error);
+            throw new ISEError(null, $this->error, $this->httpStatus);
         }
     }
 
@@ -1128,12 +1128,20 @@ class CiscoISEClient
      * @param string $mac
      *
      * @return EndPoint|null
+     * @throws Exception
      */
     public function findEndPoint(string $mac): ?EndPoint
     {
         // if we can find it via "name" then we can save a call and return faster
         $url = $this->buildUrl(EndPoint::CONFIG_NAME_URI . '/' . rawurlencode($mac));
-        $res = $this->curl($url);
+        try {
+            $res = $this->curl($url);
+        } catch (Exception $e) {
+            if ($this->httpStatus === 404) {
+                return null;
+            }
+            throw $e;
+        }
         // errno=28 === Timed Out
         if ($res && $this->httpStatus === 200 || $this->errno === 28) return $res;
 
