@@ -4,39 +4,41 @@
 namespace Lifo\CiscoISE;
 
 
-class CiscoISEIterator implements \Iterator
+use Iterator;
+
+class CiscoISEIterator implements Iterator
 {
     /** @var CiscoISEClient */
-    private $client;
+    private CiscoISEClient $client;
     /** @var int Current page number */
-    private $page;
+    private int $page;
     /** @var int Position in current result array [0 .. count(results)] */
-    private $pos;
+    private int $pos;
     /** @var int Overall index value [0 .. totalElements] */
-    private $index;
+    private int $index;
     /** @var array Current result page */
-    private $results;
+    private array $results;
     /** @var bool Only set in constructor to prevent {@link load} from being called twice at startup */
-    private $loaded;
+    private bool $loaded;
     /** @var int */
-    private $total;
+    private int $total;
     /** @var int */
-    private $limit;
+    private int $limit;
     /** @var string|null */
-    private $next;
+    private ?string $next;
     /**
      * @var bool
      */
-    private $hydrate;
+    private bool $hydrate;
 
     /**
      * @param CiscoISEClient $client
      * @param int            $total
-     * @param array          $results Initial set of results
-     * @param string         $next    URL for next result page
+     * @param array|null     $results Initial set of results
+     * @param string|null    $next    URL for next result page
      * @param bool           $hydrate Hydrate results if true
      */
-    public function __construct(CiscoISEClient $client, $total, $results = null, $next = null, $hydrate = false)
+    public function __construct(CiscoISEClient $client, int $total, array $results = null, string $next = null, bool $hydrate = false)
     {
         $this->page = 0;
         $this->pos = 0;
@@ -60,7 +62,7 @@ class CiscoISEIterator implements \Iterator
      * @return mixed Can return any type.
      * @since 5.0.0
      */
-    public function current()
+    public function current(): mixed
     {
         $o = $this->results[$this->pos];
         if ($this->hydrate && isset($o->link->href) && $o->link->rel === 'self') {
@@ -76,7 +78,7 @@ class CiscoISEIterator implements \Iterator
      * @return void Any returned value is ignored.
      * @since 5.0.0
      */
-    public function next()
+    public function next(): void
     {
         $this->pos++;
         $this->index++;
@@ -93,7 +95,7 @@ class CiscoISEIterator implements \Iterator
      * @return mixed scalar on success, or null on failure.
      * @since 5.0.0
      */
-    public function key()
+    public function key(): mixed
     {
         return $this->index;
     }
@@ -106,7 +108,7 @@ class CiscoISEIterator implements \Iterator
      * Returns true on success or false on failure.
      * @since 5.0.0
      */
-    public function valid()
+    public function valid(): bool
     {
         return isset($this->results[$this->pos]) && (!$this->limit || $this->index < $this->limit);
     }
@@ -118,7 +120,7 @@ class CiscoISEIterator implements \Iterator
      * @return void Any returned value is ignored.
      * @since 5.0.0
      */
-    public function rewind()
+    public function rewind(): void
     {
         if (!$this->loaded) {
             $this->page = 0;
@@ -151,7 +153,7 @@ class CiscoISEIterator implements \Iterator
     /**
      * @return int
      */
-    public function getLimit()
+    public function getLimit(): int
     {
         return $this->limit;
     }
@@ -159,7 +161,7 @@ class CiscoISEIterator implements \Iterator
     /**
      * @param int $limit
      */
-    public function setLimit($limit)
+    public function setLimit(int $limit)
     {
         $this->limit = $limit;
     }
