@@ -21,28 +21,18 @@ class SnmpSettings extends AbstractObject
 
     public function mapPropToKey(string $prop): string
     {
-        switch ($prop) {
+        return match ($prop) {
             // needed until ISE API fixes the bug
-            case 'authPassword':
-            case 'privacyPassword':
-                return str_replace('Password', 'Passowrd', $prop);
-        }
-        return parent::mapPropToKey($prop);
+            'authPassword', 'privacyPassword' => str_replace('Password', 'Passowrd', $prop),
+            default => parent::mapPropToKey($prop),
+        };
     }
 
-    /**
-     * @return string|null
-     */
     public function getVersion(): ?string
     {
         return $this->version;
     }
 
-    /**
-     * @param string|null $version
-     *
-     * @return SnmpSettings
-     */
     public function setVersion(?string $version): SnmpSettings
     {
         switch (true) {
@@ -62,76 +52,44 @@ class SnmpSettings extends AbstractObject
         return $this;
     }
 
-    /**
-     * @return string|null
-     */
     public function getUsername(): ?string
     {
         return $this->username;
     }
 
-    /**
-     * @param string|null $username
-     *
-     * @return SnmpSettings
-     */
     public function setUsername(?string $username): SnmpSettings
     {
         $this->username = $username;
         return $this;
     }
 
-    /**
-     * @return string|null
-     */
     public function getSecurityLevel(): ?string
     {
         return $this->securityLevel;
     }
 
-    /**
-     * @param string|null $securityLevel
-     *
-     * @return SnmpSettings
-     */
     public function setSecurityLevel(?string $securityLevel): SnmpSettings
     {
         $this->securityLevel = $securityLevel;
         return $this;
     }
 
-    /**
-     * @return string|null
-     */
     public function getAuthProtocol(): ?string
     {
         return $this->authProtocol;
     }
 
-    /**
-     * @param string|null $authProtocol
-     *
-     * @return SnmpSettings
-     */
     public function setAuthProtocol(?string $authProtocol): SnmpSettings
     {
         $this->authProtocol = $authProtocol;
         return $this;
     }
 
-    /**
-     * @return string|null
-     */
     public function getAuthPassword(): ?string
     {
         return $this->authPassword;
     }
 
-    /**
-     * @param string|null $authPassword
-     *
-     * @return SnmpSettings
-     */
     public function setAuthPassword(?string $authPassword): SnmpSettings
     {
         $this->authPassword = $authPassword;
@@ -150,38 +108,22 @@ class SnmpSettings extends AbstractObject
         return $this->setAuthPassword($pw);
     }
 
-    /**
-     * @return string|null
-     */
     public function getPrivacyProtocol(): ?string
     {
         return $this->privacyProtocol;
     }
 
-    /**
-     * @param string|null $privacyProtocol
-     *
-     * @return SnmpSettings
-     */
     public function setPrivacyProtocol(?string $privacyProtocol): SnmpSettings
     {
         $this->privacyProtocol = $privacyProtocol;
         return $this;
     }
 
-    /**
-     * @return string|null
-     */
     public function getPrivacyPassword(): ?string
     {
         return $this->privacyPassword;
     }
 
-    /**
-     * @param string|null $privacyPassword
-     *
-     * @return SnmpSettings
-     */
     public function setPrivacyPassword(?string $privacyPassword): SnmpSettings
     {
         $this->privacyPassword = $privacyPassword;
@@ -201,95 +143,55 @@ class SnmpSettings extends AbstractObject
         return $this->setPrivacyPassword($pw);
     }
 
-    /**
-     * @return string|null
-     */
     public function getRoCommunity(): ?string
     {
         return $this->roCommunity;
     }
 
-    /**
-     * @param string|null $roCommunity
-     *
-     * @return SnmpSettings
-     */
     public function setRoCommunity(?string $roCommunity): SnmpSettings
     {
         $this->roCommunity = $roCommunity;
         return $this;
     }
 
-    /**
-     * @return string|null
-     */
     public function getOriginatingPolicyServicesNode(): ?string
     {
         return $this->originatingPolicyServicesNode;
     }
 
-    /**
-     * @param string|null $originatingPolicyServicesNode
-     *
-     * @return SnmpSettings
-     */
     public function setOriginatingPolicyServicesNode(?string $originatingPolicyServicesNode): SnmpSettings
     {
         $this->originatingPolicyServicesNode = $originatingPolicyServicesNode;
         return $this;
     }
 
-    /**
-     * @return int|null
-     */
     public function getPollingInterval(): ?int
     {
         return $this->pollingInterval;
     }
 
-    /**
-     * @param int|null $pollingInterval
-     *
-     * @return SnmpSettings
-     */
     public function setPollingInterval(?int $pollingInterval): SnmpSettings
     {
         $this->pollingInterval = $pollingInterval;
         return $this;
     }
 
-    /**
-     * @return bool
-     */
     public function isLinkTrapQuery(): bool
     {
         return $this->linkTrapQuery;
     }
 
-    /**
-     * @param bool $linkTrapQuery
-     *
-     * @return SnmpSettings
-     */
     public function setLinkTrapQuery(bool $linkTrapQuery): SnmpSettings
     {
         $this->linkTrapQuery = $linkTrapQuery;
         return $this;
     }
 
-    /**
-     * @return bool
-     */
     public function isMacTrapQuery(): bool
     {
         return $this->macTrapQuery;
     }
 
-    /**
-     * @param bool $macTrapQuery
-     *
-     * @return SnmpSettings
-     */
     public function setMacTrapQuery(bool $macTrapQuery): SnmpSettings
     {
         $this->macTrapQuery = $macTrapQuery;

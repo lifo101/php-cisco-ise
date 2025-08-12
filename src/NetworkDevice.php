@@ -5,8 +5,8 @@ namespace Lifo\CiscoISE;
 
 class NetworkDevice extends AbstractObject
 {
-    const CONFIG_URI    = 'config/networkdevice';
-    const JSON_ROOT_KEY = 'NetworkDevice';
+    const string CONFIG_URI    = 'config/networkdevice';
+    const string JSON_ROOT_KEY = 'NetworkDevice';
 
     protected ?string                 $id                     = null;
     protected ?string                 $name                   = null;
@@ -22,15 +22,11 @@ class NetworkDevice extends AbstractObject
 
     public function mapPropToKey(string $prop): string
     {
-        switch ($prop) {
-            case 'trustSecSettings':
-            case 'snmpSettings':
-                return strtolower($prop);
-            case 'networkDeviceIPList':
-            case 'networkDeviceGroupList':
-                return ucfirst($prop);
-        }
-        return $prop;
+        return match ($prop) {
+            'trustSecSettings', 'snmpSettings' => strtolower($prop),
+            'networkDeviceIPList', 'networkDeviceGroupList' => ucfirst($prop),
+            default => $prop,
+        };
     }
 
     public function __clone()
@@ -38,125 +34,72 @@ class NetworkDevice extends AbstractObject
         $this->id = null;
     }
 
-    /**
-     * @return string|null
-     */
     public function getId(): ?string
     {
         return $this->id;
     }
 
-    /**
-     * @param string|null $id
-     *
-     * @return NetworkDevice
-     */
-    public function setId(string $id): self
+    public function setId(?string $id): self
     {
         $this->id = $id;
         return $this;
     }
 
-    /**
-     * @return string|null
-     */
     public function getName(): ?string
     {
         return $this->name;
     }
 
-    /**
-     * @param string|null $name
-     *
-     * @return NetworkDevice
-     */
     public function setName(?string $name): self
     {
         $this->name = $name;
         return $this;
     }
 
-    /**
-     * @return string|null
-     */
     public function getDescription(): ?string
     {
         return $this->description;
     }
 
-    /**
-     * @param string|null $description
-     *
-     * @return NetworkDevice
-     */
     public function setDescription(?string $description): self
     {
         $this->description = $description;
         return $this;
     }
 
-    /**
-     * @return string|null
-     */
     public function getDtlsDnsName(): ?string
     {
         return $this->dtlsDnsName;
     }
 
-    /**
-     * @param string|null $dtlsDnsName
-     *
-     * @return NetworkDevice
-     */
     public function setDtlsDnsName(?string $dtlsDnsName): self
     {
         $this->dtlsDnsName = $dtlsDnsName;
         return $this;
     }
 
-    /**
-     * @return string|null
-     */
     public function getProfileName(): ?string
     {
         return $this->profileName;
     }
 
-    /**
-     * @param string|null $profileName
-     *
-     * @return NetworkDevice
-     */
     public function setProfileName(?string $profileName): self
     {
         $this->profileName = $profileName;
         return $this;
     }
 
-    /**
-     * @return int|null
-     */
     public function getCoaPort(): ?int
     {
         return $this->coaPort;
     }
 
-    /**
-     * @param int|null $coaPort
-     *
-     * @return NetworkDevice
-     */
     public function setCoaPort(?int $coaPort): self
     {
         $this->coaPort = $coaPort;
         return $this;
     }
 
-    /**
-     * @param AuthenticationSettings|object|null $settings
-     *
-     * @return NetworkDevice
-     */
     public function setAuthenticationSettings($settings): self
     {
         if ($settings && !$settings instanceof AuthenticationSettings) {
@@ -166,9 +109,6 @@ class NetworkDevice extends AbstractObject
         return $this;
     }
 
-    /**
-     * @return AuthenticationSettings
-     */
     public function getAuthenticationSettings(): AuthenticationSettings
     {
         if (!$this->authenticationSettings) {
@@ -177,11 +117,6 @@ class NetworkDevice extends AbstractObject
         return $this->authenticationSettings;
     }
 
-    /**
-     * @param TacacsSettings|object|null $settings
-     *
-     * @return NetworkDevice
-     */
     public function setTacacsSettings($settings): self
     {
         if ($settings && !$settings instanceof TacacsSettings) {
@@ -191,9 +126,6 @@ class NetworkDevice extends AbstractObject
         return $this;
     }
 
-    /**
-     * @return TacacsSettings
-     */
     public function getTacacsSettings(): TacacsSettings
     {
         if (!$this->tacacsSettings) {
@@ -202,11 +134,6 @@ class NetworkDevice extends AbstractObject
         return $this->tacacsSettings;
     }
 
-    /**
-     * @param NetworkDeviceIPList|array|null $ips
-     *
-     * @return NetworkDevice
-     */
     public function setNetworkDeviceIPList($ips): self
     {
         if ($ips !== null && !$ips instanceof NetworkDeviceIPList) {
@@ -216,9 +143,6 @@ class NetworkDevice extends AbstractObject
         return $this;
     }
 
-    /**
-     * @return NetworkDeviceIPList
-     */
     public function getNetworkDeviceIPList(): NetworkDeviceIPList
     {
         if (!$this->networkDeviceIPList) {
@@ -227,11 +151,6 @@ class NetworkDevice extends AbstractObject
         return $this->networkDeviceIPList;
     }
 
-    /**
-     * @param NetworkDeviceGroupList|array|null $groups
-     *
-     * @return NetworkDevice
-     */
     public function setNetworkDeviceGroupList($groups): self
     {
         if ($groups !== null && !$groups instanceof NetworkDeviceGroupList) {
@@ -241,9 +160,6 @@ class NetworkDevice extends AbstractObject
         return $this;
     }
 
-    /**
-     * @return NetworkDeviceGroupList
-     */
     public function getNetworkDeviceGroupList(): NetworkDeviceGroupList
     {
         if (!$this->networkDeviceGroupList) {
@@ -252,11 +168,6 @@ class NetworkDevice extends AbstractObject
         return $this->networkDeviceGroupList;
     }
 
-    /**
-     * @param SnmpSettings|array|null $settings
-     *
-     * @return NetworkDevice
-     */
     public function setSnmpSettings($settings): self
     {
         if ($settings !== null && !$settings instanceof SnmpSettings) {
@@ -266,9 +177,6 @@ class NetworkDevice extends AbstractObject
         return $this;
     }
 
-    /**
-     * @return SnmpSettings
-     */
     public function getSnmpSettings(): SnmpSettings
     {
         if (!$this->snmpSettings) {

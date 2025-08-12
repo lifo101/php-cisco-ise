@@ -16,30 +16,18 @@ abstract class AbstractResult
 
     /**
      * Return the RAW result response from the server.
-     *
-     * @return object
      */
-    protected function getResult()
+    protected function getResult(): object
     {
         return $this->result;
     }
 
-    /**
-     * @return CiscoISEClient
-     */
-    protected function getISEClient()
+    protected function getISEClient(): CiscoISEClient
     {
         return $this->ise;
     }
 
-    /**
-     * @param string $var
-     * @param object $obj
-     * @param mixed  $default
-     *
-     * @return mixed
-     */
-    protected function extractProperty(string $var, object $obj, $default = null)
+    protected function extractProperty(string $var, object $obj, mixed $default = null): mixed
     {
         if (property_exists($obj, $var)) {
             return $obj->$var;

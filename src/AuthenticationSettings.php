@@ -163,7 +163,7 @@ class AuthenticationSettings extends AbstractObject
      *
      * @return AuthenticationSettings
      */
-    public function setEnableMultiSecret($enableMultiSecret): AuthenticationSettings
+    public function setEnableMultiSecret(bool|string $enableMultiSecret): AuthenticationSettings
     {
         if (is_string($enableMultiSecret)) {
             $enableMultiSecret = strtolower($enableMultiSecret) === 'true';

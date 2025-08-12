@@ -14,7 +14,7 @@ interface ObjectInterface
      *
      * @return mixed
      */
-    public static function createFrom($from, $dest = null);
+    public static function createFrom(mixed $from, ?object $dest = null): mixed;
 
     /**
      * Return the ID of the object

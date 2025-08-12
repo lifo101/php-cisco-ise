@@ -38,7 +38,7 @@ class CiscoISEIterator implements Iterator
      * @param string|null    $next    URL for next result page
      * @param bool           $hydrate Hydrate results if true
      */
-    public function __construct(CiscoISEClient $client, int $total, array $results = null, string $next = null, bool $hydrate = false)
+    public function __construct(CiscoISEClient $client, int $total, ?array $results = null, ?string $next = null, bool $hydrate = false)
     {
         $this->page = 0;
         $this->pos = 0;
@@ -92,10 +92,10 @@ class CiscoISEIterator implements Iterator
      * Return the key of the current element
      *
      * @link  http://php.net/manual/en/iterator.key.php
-     * @return mixed scalar on success, or null on failure.
+     * @return int scalar on success, or null on failure.
      * @since 5.0.0
      */
-    public function key(): mixed
+    public function key(): int
     {
         return $this->index;
     }
@@ -135,7 +135,7 @@ class CiscoISEIterator implements Iterator
     /**
      * Load the next batch of results
      */
-    private function load()
+    private function load(): void
     {
         $this->pos = 0;
         if ($this->next && $this->total > 0 && $this->index < $this->total && (!$this->limit || $this->index < $this->limit)) {
@@ -161,7 +161,7 @@ class CiscoISEIterator implements Iterator
     /**
      * @param int $limit
      */
-    public function setLimit(int $limit)
+    public function setLimit(int $limit): void
     {
         $this->limit = $limit;
     }

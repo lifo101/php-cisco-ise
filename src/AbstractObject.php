@@ -10,12 +10,7 @@ use Symfony\Component\PropertyAccess\PropertyAccess;
 
 abstract class AbstractObject implements ObjectInterface, JsonSerializable
 {
-    /**
-     * AbstractObject constructor.
-     *
-     * @param object|array $from
-     */
-    public function __construct($from = null)
+    public function __construct(mixed $from = null)
     {
         if ($from) self::createFrom($from, $this);
     }
@@ -51,12 +46,12 @@ abstract class AbstractObject implements ObjectInterface, JsonSerializable
     }
 
     /**
-     * @param mixed $from
-     * @param mixed $dest
+     * @param mixed       $from
+     * @param object|null $dest
      *
      * @return self
      */
-    public static function createFrom($from, $dest = null): self
+    public static function createFrom(mixed $from, ?object $dest = null): self
     {
         $dest ??= new static();
         if (is_array($from)) $from = (object)$from;

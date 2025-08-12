@@ -46,12 +46,7 @@ class NetworkDeviceIPList extends AbstractListObject
     public function exists($ip): bool
     {
         $ip = $this->extractIP($ip);
-        foreach ($this->list as $item) {
-            if ($item->ipaddress === $ip->ipaddress && $item->mask === $ip->mask) {
-                return true;
-            }
-        }
-        return false;
+        return array_any($this->list, fn($item) => $item->ipaddress === $ip->ipaddress && $item->mask === $ip->mask);
     }
 
     public function getFirstIP(): ?string

@@ -3,6 +3,7 @@
 
 namespace Lifo\CiscoISE;
 
+use CurlHandle;
 use Exception;
 use InvalidArgumentException;
 use ReflectionClass;
@@ -50,7 +51,7 @@ class CiscoISEClient
      * @param string          $password
      * @param string          $version
      */
-    public function __construct($host, string $username, string $password, string $version = '2.4')
+    public function __construct(array|string $host, string $username, string $password, string $version = '2.4')
     {
         $this->setHosts($host);
         $this->setPort(9060);
@@ -68,7 +69,7 @@ class CiscoISEClient
         $this->headerIndex = null;
     }
 
-    protected function curlInit($url, $method = null, $contentType = 'json')
+    protected function curlInit(?string $url, $method = null, string $contentType = 'json'): CurlHandle|false
     {
         $ch = curl_init();
         $this->lastUrl = $url;
@@ -116,10 +117,10 @@ class CiscoISEClient
         return $this;
     }
 
-    protected function buildUrl($op, array $params = null): string
+    protected function buildUrl($op, ?array $params = null): string
     {
         // Is the $op a fully qualified URL?
-        if (substr($op, 0, 4) == 'http') {
+        if (str_starts_with($op, 'http')) {
             $url = $op;
         } else {
             $url = 'https://' . $this->host . ':' . $this->port . '/ers/' . ltrim($op ?: '', '/');
@@ -146,7 +147,7 @@ class CiscoISEClient
             if (!empty($params)) {
                 $q = http_build_query($params);
                 // replace 'filter[x]=' with 'filter='
-                $q = preg_replace('/%5B\d+%5D/simU', '', $q);
+                $q = preg_replace('/%5B\d+%5D/imU', '', $q);
                 $url .= '?' . $q;
             }
         }
@@ -155,16 +156,16 @@ class CiscoISEClient
     }
 
     /**
-     * @param mixed        $ch
-     * @param string|array $post
-     * @param string       $contentType
+     * @param string|CurlHandle $ch
+     * @param array|string|null $post
+     * @param string            $contentType
      *
-     * @return mixed
+     * @return object|null
      * @throws Exception on failure
      */
-    protected function curl($ch, $post = null, string $contentType = 'json'): ?object
+    protected function curl(string|CurlHandle $ch, array|string|null $post = null, string $contentType = 'json'): ?object
     {
-        if (!is_resource($ch)) {
+        if (!$ch instanceof CurlHandle) {
             $ch = $this->curlInit($ch);
         }
 
@@ -192,15 +193,15 @@ class CiscoISEClient
     }
 
     /**
-     * @param resource $ch Curl Handle
+     * @param CurlHandle $ch Curl Handle
      *
      * @throws Exception on failure
      */
-    protected function processError($ch)
+    protected function processError(CurlHandle $ch): void
     {
         $this->errno = curl_errno($ch);
         $this->error = curl_error($ch) ?: null;
-        if (substr($this->httpStatus, 0, 1) === '2') return;
+        if (str_starts_with($this->httpStatus, '2')) return;
         $this->errno = $this->httpStatus;
         switch (true) {
             case $this->httpStatus >= 500:
@@ -228,12 +229,7 @@ class CiscoISEClient
         }
     }
 
-    /**
-     * @param mixed $str
-     *
-     * @return object|null
-     */
-    protected function processResponse($str): ?object
+    protected function processResponse(mixed $str): ?object
     {
         if (!$str) return null;
         $json = json_decode($str);
@@ -245,7 +241,7 @@ class CiscoISEClient
             $cls = $this->mapTypeToClass($type);
             try {
                 return $this->hydrateLocalObject($json->$type, $cls);
-            } catch (Exception $e) {
+            } catch (Exception) {
                 return $json;
             }
         }
@@ -264,12 +260,10 @@ class CiscoISEClient
     {
         $class = __NAMESPACE__ . '\\' . $type;
         if (class_exists($class)) {
-            switch (true) {
-                case $class === SearchResult::class:
-                    return new $class($obj, $this);
-                default:
-                    return new $class($obj);
-            }
+            return match (true) {
+                $class === SearchResult::class => new $class($obj, $this),
+                default => new $class($obj),
+            };
         } else {
             return $obj;
         }
@@ -277,17 +271,12 @@ class CiscoISEClient
 
     /**
      * Return the last response.
-     *
-     * @return object
      */
     public function getResponse(): ?object
     {
         return $this->response;
     }
 
-    /**
-     * @return object
-     */
     public function getJson(): ?object
     {
         return $this->json;
@@ -295,17 +284,12 @@ class CiscoISEClient
 
     /**
      * Return the last POST data
-     *
-     * @return string
      */
     public function getPost(): ?string
     {
         return $this->post;
     }
 
-    /**
-     * @return string
-     */
     public function getHost(): string
     {
         return $this->host;
@@ -322,21 +306,13 @@ class CiscoISEClient
         return $this;
     }
 
-    /**
-     * @param string[]|string $hosts
-     *
-     * @return self
-     */
-    public function setHosts($hosts): self
+    public function setHosts(array|string $hosts): self
     {
         $this->hosts = is_iterable($hosts) ? (array)$hosts : [$hosts];
         $this->setHost(reset($this->hosts));
         return $this;
     }
 
-    /**
-     * @return array
-     */
     public function getHosts(): array
     {
         return $this->hosts;
@@ -347,6 +323,8 @@ class CiscoISEClient
      * {@link $hosts} must be set.
      *
      * @return Node|null
+     * @throws Exception
+     * @throws Exception
      */
     public function determinePrimaryNode(): ?Node
     {
@@ -373,6 +351,8 @@ class CiscoISEClient
      * Get current and supported versions.
      *
      * @return VersionInfo|null
+     * @throws Exception
+     * @throws Exception
      */
     public function getVersions(): ?VersionInfo
     {
@@ -380,85 +360,50 @@ class CiscoISEClient
         return $this->curl($url);
     }
 
-    /**
-     * @param int $port
-     *
-     * @return CiscoISEClient
-     */
     public function setPort(int $port): self
     {
         $this->port = $port;
         return $this;
     }
 
-    /**
-     * @return int
-     */
     public function getPort(): int
     {
         return $this->port;
     }
 
-    /**
-     * @param int $timeout
-     *
-     * @return self
-     */
     public function setTimeout(int $timeout): self
     {
         $this->timeout = $timeout;
         return $this;
     }
 
-    /**
-     * @return int
-     */
     public function getTimeout(): int
     {
         return $this->timeout;
     }
 
-    /**
-     * @return string
-     */
     public function getUsername(): string
     {
         return $this->username;
     }
 
-    /**
-     * @param string $username
-     *
-     * @return self
-     */
     public function setUsername(string $username): self
     {
         $this->username = $username;
         return $this;
     }
 
-    /**
-     * @return string
-     */
     public function getPassword(): string
     {
         return $this->password;
     }
 
-    /**
-     * @param string $password
-     *
-     * @return self
-     */
     public function setPassword(string $password): self
     {
         $this->password = $password;
         return $this;
     }
 
-    /**
-     * @return string
-     */
     public function getError(): ?string
     {
         return $this->error;
@@ -466,8 +411,6 @@ class CiscoISEClient
 
     /**
      * Return the last URL requested
-     *
-     * @return string
      */
     public function getLastUrl(): ?string
     {
@@ -482,14 +425,14 @@ class CiscoISEClient
      *
      * @return string|string[]|null
      */
-    public function getHeader(string $name)
+    public function getHeader(string $name): array|string|null
     {
         if (!$this->headers) {
             return null;
         }
         $name = strtolower($name);
         $headers = end($this->headers);
-        $headers = array_combine(array_map('strtolower', array_keys($headers)), array_values($headers));
+        $headers = array_combine(array_map(strtolower(...), array_keys($headers)), array_values($headers));
         if (array_key_exists($name, $headers)) {
             return $headers[$name];
         }
@@ -513,9 +456,10 @@ class CiscoISEClient
      * @param string $op
      * @param array  $params
      *
-     * @return mixed
+     * @return object|null
+     * @throws Exception
      */
-    public function get(string $op, $params = []): ?object
+    public function get(string $op, array $params = []): ?object
     {
         return $this->curl($this->buildUrl($op, $params));
     }
@@ -525,9 +469,10 @@ class CiscoISEClient
      *
      * @param array $params
      *
-     * @return SearchResult
+     * @return object|null
+     * @throws Exception
      */
-    public function getNodes($params = [])
+    public function getNodes(array $params = []): ?object
     {
         $url = $this->buildUrl('config/node', $params);
         return $this->curl($url);
@@ -536,11 +481,12 @@ class CiscoISEClient
     /**
      * Fetch a list of endpoint identity groups.
      *
-     * @param array $params
+     * @param array|null $params
      *
-     * @return SearchResult
+     * @return object|null
+     * @throws Exception
      */
-    public function getEndpointGroups($params = null)
+    public function getEndpointGroups(?array $params = null): ?object
     {
         $url = $this->buildUrl('config/endpointgroup', $params);
         return $this->curl($url);
@@ -553,8 +499,9 @@ class CiscoISEClient
      * @param bool   $byName
      *
      * @return EndPointGroup|null
+     * @throws Exception
      */
-    public function getEndpointGroup(string $id, bool $byName = null): ?object
+    public function getEndpointGroup(string $id, ?bool $byName = null): ?object
     {
         $url = $this->buildUrl(($byName ? EndPointGroup::CONFIG_NAME_URI : EndPointGroup::CONFIG_URI) . '/' . rawurlencode($id));
         return $this->curl($url);
@@ -566,6 +513,7 @@ class CiscoISEClient
      * @param string $name
      *
      * @return EndPointGroup|null
+     * @throws Exception
      */
     public function getEndpointGroupByName(string $name): ?object
     {
@@ -576,11 +524,12 @@ class CiscoISEClient
     /**
      * Fetch a list of endpoints. Not safe to paginate through this result set due to the large result set (>100k).
      *
-     * @param array $params
+     * @param array|null $params
      *
      * @return SearchResult|object
+     * @throws Exception
      */
-    public function getEndPoints($params = null)
+    public function getEndPoints(?array $params = null): ?object
     {
         $url = $this->buildUrl(EndPoint::CONFIG_URI, $params);
         return $this->curl($url);
@@ -589,11 +538,12 @@ class CiscoISEClient
     /**
      * Fetch a list of ANC endpoints.
      *
-     * @param array $params
+     * @param array|null $params
      *
      * @return SearchResult|object
+     * @throws Exception
      */
-    public function getAncEndPoints($params = null)
+    public function getAncEndPoints(?array $params = null): ?object
     {
         $url = $this->buildUrl(AncEndPoint::CONFIG_URI, $params);
         return $this->curl($url);
@@ -603,11 +553,12 @@ class CiscoISEClient
      * Fetch an ANC EndPoint.
      *
      * @param string|EndPoint $id
-     * @param array           $params
+     * @param array|null      $params
      *
-     * @return SearchResult
+     * @return object|null
+     * @throws Exception
      */
-    public function getAncEndpoint($id, $params = null)
+    public function getAncEndpoint(string|EndPoint $id, ?array $params = null): ?object
     {
         if ($id instanceof EndPoint) $id = $id->getId();
         $url = $this->buildUrl(sprintf(AncEndPoint::CONFIG_URI . '/%s', rawurlencode($id)), $params);
@@ -618,11 +569,12 @@ class CiscoISEClient
     /**
      * Fetch a list of network devices.
      *
-     * @param array $params
+     * @param array|null $params
      *
-     * @return SearchResult
+     * @return SearchResult|null
+     * @throws Exception
      */
-    public function getNetworkDeviceGroups($params = null)
+    public function getNetworkDeviceGroups(?array $params = null): ?object
     {
         $url = $this->buildUrl('config/networkdevicegroup', $params);
         return $this->curl($url);
@@ -631,12 +583,13 @@ class CiscoISEClient
     /**
      * Fetch a single network device group by it's ID.
      *
-     * @param string $id
-     * @param array  $params
+     * @param string     $id
+     * @param array|null $params
      *
      * @return NetworkDeviceGroup|null
+     * @throws Exception
      */
-    public function getNetworkDeviceGroup(string $id, $params = null): ?NetworkDeviceGroup
+    public function getNetworkDeviceGroup(string $id, ?array $params = null): ?NetworkDeviceGroup
     {
         $url = $this->buildUrl(sprintf('config/networkdevicegroup/%s', $id), $params);
         return $this->curl($url);
@@ -645,17 +598,18 @@ class CiscoISEClient
     /**
      * Fetch a single network device group by it's ID.
      *
-     * @param string $name
-     * @param null   $params
+     * @param string     $name
+     * @param array|null $params
      *
      * @return NetworkDeviceGroup|null
+     * @throws Exception
      */
-    public function getNetworkDeviceGroupByName(string $name, $params = null): ?NetworkDeviceGroup
+    public function getNetworkDeviceGroupByName(string $name, ?array $params = null): ?NetworkDeviceGroup
     {
         try {
             $url = $this->buildUrl(sprintf('config/networkdevicegroup/name/%s', rawurlencode(str_replace('#', ':', $name))), $params);
             return $this->curl($url);
-        } catch (ISEError $e) {
+        } catch (ISEError) {
             return null;
         }
     }
@@ -673,7 +627,7 @@ class CiscoISEClient
     {
         try {
             return $this->getNetworkDeviceGroupByName('Location#All Locations#' . $name, $params);
-        } catch (Exception $e) {
+        } catch (Exception) {
             return null;
         }
     }
@@ -681,11 +635,12 @@ class CiscoISEClient
     /**
      * Fetch a list of network devices.
      *
-     * @param array $params
+     * @param array|null $params
      *
      * @return SearchResult|object
+     * @throws Exception
      */
-    public function getNetworkDevices($params = null)
+    public function getNetworkDevices(?array $params = null): ?object
     {
         $url = $this->buildUrl('config/networkdevice', $params);
         return $this->curl($url);
@@ -694,12 +649,13 @@ class CiscoISEClient
     /**
      * Fetch a single network device by it's ID.
      *
-     * @param string $id
-     * @param null   $params
+     * @param string     $id
+     * @param array|null $params
      *
      * @return object|null
+     * @throws Exception
      */
-    public function getNetworkDevice(string $id, $params = null): ?object
+    public function getNetworkDevice(string $id, ?array $params = null): ?object
     {
         $url = $this->buildUrl(sprintf('config/networkdevice/%s', $id), $params);
         return $this->curl($url);
@@ -711,6 +667,7 @@ class CiscoISEClient
      * @param string $match
      *
      * @return NetworkDevice|null
+     * @throws Exception
      */
     public function findNetworkDevice(string $match): ?NetworkDevice
     {
@@ -735,11 +692,12 @@ class CiscoISEClient
     /**
      * Fetch a list of ANC Policies.
      *
-     * @param array $params
+     * @param array|null $params
      *
      * @return SearchResult|object
+     * @throws Exception
      */
-    public function getAncPolicies($params = null)
+    public function getAncPolicies(?array $params = null): ?object
     {
         $url = $this->buildUrl(AncPolicy::CONFIG_URI, $params);
         return $this->curl($url);
@@ -752,8 +710,9 @@ class CiscoISEClient
      * @param bool   $byName
      *
      * @return AncPolicy|null
+     * @throws Exception
      */
-    public function getAncPolicy(string $id, bool $byName = null): ?AncPolicy
+    public function getAncPolicy(string $id, ?bool $byName = null): ?AncPolicy
     {
         $url = $this->buildUrl(($byName ? AncPolicy::CONFIG_NAME_URI : AncPolicy::CONFIG_URI) . '/' . rawurlencode($id));
         return $this->curl($url);
@@ -768,12 +727,13 @@ class CiscoISEClient
      * Apply or clear ANC Policy on the mac(s) (or {@link EndPoint}s) provided.
      * If Policy is null its cleared from the EndPoint
      *
-     * @param string|string[]|EndPoint|EndPoint[] $macs   MAC Address string, or EndPoint
+     * @param string|EndPoint|EndPoint[]|string[] $macs   MAC Address string, or EndPoint
      * @param string|AncPolicy|null               $policy Null to clear the policy from the EndPoint
      *
      * @return bool
+     * @throws Exception
      */
-    public function ancApply($macs, $policy): bool
+    public function ancApply(array|string|EndPoint $macs, string|AncPolicy|null $policy): bool
     {
         $ary = [];
         if (!is_iterable($macs)) $macs = [$macs];
@@ -805,6 +765,7 @@ class CiscoISEClient
      * @param $macs
      *
      * @return bool
+     * @throws Exception
      */
     public function ancClear($macs): bool
     {
@@ -814,16 +775,16 @@ class CiscoISEClient
     /**
      * Perform an Create request on the object given
      *
-     * @param ObjectInterface|object|array $obj
-     * @param string                       $cls     Class name of object being updated
-     * @param string                       $uri     The URI of the operation to perform (eg: config/networkdevice)
-     * @param string                       $rootKey The root key for the JSON requestion (eg: 'NetworkDevice')
-     * @param bool                         $hydrate Hydrate the response into a real class
+     * @param ObjectInterface|array $obj
+     * @param string                $cls     Class name of object being updated
+     * @param string                $uri     The URI of the operation to perform (eg: config/networkdevice)
+     * @param string                $rootKey The root key for the JSON requestion (eg: 'NetworkDevice')
+     * @param bool                  $hydrate Hydrate the response into a real class
      *
-     * @return bool|string
-     * @throws ISEError on failure
+     * @return SearchResult|ObjectInterface|string|bool|null
+     * @throws Exception
      */
-    protected function doCreate($obj, string $cls, string $uri, string $rootKey, bool $hydrate = false)
+    protected function doCreate(ObjectInterface|array $obj, string $cls, string $uri, string $rootKey, bool $hydrate = false): SearchResult|ObjectInterface|string|bool|null
     {
         $ary = $obj instanceof ObjectInterface ? $obj->toArray() : (array)$obj;
         $url = $this->buildUrl($uri);
@@ -836,8 +797,8 @@ class CiscoISEClient
             return $hydrate ? $this->get($url) : $id;
         }
         try {
-            $name = (new ReflectionClass($cls))->getShortName();
-        } catch (Exception $e) {
+            $name = new ReflectionClass($cls)->getShortName();
+        } catch (Exception) {
             $name = $cls;
         }
         throw new ISEError($res, sprintf("Error creating %s", $name));
@@ -846,15 +807,16 @@ class CiscoISEClient
     /**
      * Perform an Update request on the object given
      *
-     * @param ObjectInterface|object|array $obj
-     * @param string                       $cls     Class name of object being updated
-     * @param string                       $uri     The URI of the operation to perform (eg: config/networkdevice)
-     * @param string                       $rootKey The root key for the JSON requestion (eg: 'NetworkDevice')
+     * @param ObjectInterface|array $obj
+     * @param string                $cls     Class name of object being updated
+     * @param string                $uri     The URI of the operation to perform (eg: config/networkdevice)
+     * @param string                $rootKey The root key for the JSON requestion (eg: 'NetworkDevice')
      *
      * @return bool
      * @throws ISEError on failure
+     * @throws Exception
      */
-    protected function doUpdate($obj, string $cls, string $uri, string $rootKey): bool
+    protected function doUpdate(ObjectInterface|array $obj, string $cls, string $uri, string $rootKey): bool
     {
         $ary = $obj instanceof ObjectInterface ? $obj->toArray() : (array)$obj;
         if (!$ary) {
@@ -871,20 +833,20 @@ class CiscoISEClient
         if ($this->httpStatus === 200) return true;
 
         try {
-            $name = (new ReflectionClass($cls))->getShortName();
-        } catch (Exception $e) {
+            $name = new ReflectionClass($cls)->getShortName();
+        } catch (Exception) {
             $name = $cls;
         }
         throw new ISEError($res, sprintf("Error updating %s#%s", $name, $id));
     }
 
     /**
-     * @param mixed  $obj
-     * @param string $uri
+     * @param ObjectInterface|array|string|int $obj
+     * @param string                           $uri
      *
      * @return bool
      */
-    protected function doDelete($obj, string $uri): bool
+    protected function doDelete(ObjectInterface|array|string|int $obj, string $uri): bool
     {
         $id = $this->extractId($obj);
         if (!$id) {
@@ -895,96 +857,96 @@ class CiscoISEClient
         try {
             $this->curl($ch);
             return $this->httpStatus === 204;
-        } catch (Exception $e) {
+        } catch (Exception) {
             return false;
         }
     }
 
     /**
-     * @param NetworkDevice|object|array $dev
-     * @param bool                       $hydrate If true, fetch the newly created object and return it instead of the ID string
+     * @param NetworkDevice|array $dev
+     * @param bool                $hydrate If true, fetch the newly created object and return it instead of the ID string
      *
-     * @return NetworkDevice|string|null if $hydrate is true then NetworkDevice else ID string
-     * @throws ISEError on failure
+     * @return bool|NetworkDevice|string|null if $hydrate is true then NetworkDevice else ID string
+     * @throws ISEError|Exception on failure
      */
-    public function createNetworkDevice($dev, $hydrate = false)
+    public function createNetworkDevice(NetworkDevice|array $dev, bool $hydrate = false): NetworkDevice|bool|string|null
     {
         return $this->doCreate($dev, NetworkDevice::class, NetworkDevice::CONFIG_URI, NetworkDevice::JSON_ROOT_KEY, $hydrate);
     }
 
     /**
-     * @param NetworkDevice|object|array $dev
+     * @param ObjectInterface|array $dev
      *
      * @return bool
-     * @throws ISEError on failure
+     * @throws Exception on failure
      */
-    public function updateNetworkDevice($dev): bool
+    public function updateNetworkDevice(ObjectInterface|array $dev): bool
     {
         return $this->doUpdate($dev, NetworkDevice::class, NetworkDevice::CONFIG_URI, NetworkDevice::JSON_ROOT_KEY);
     }
 
     /**
-     * @param NetworkDevice|object|string $dev
+     * @param NetworkDevice|string $dev
      *
      * @return bool True on success
      */
-    public function deleteNetworkDevice($dev): bool
+    public function deleteNetworkDevice(NetworkDevice|string $dev): bool
     {
         return $this->doDelete($dev, NetworkDevice::CONFIG_URI);
     }
 
 
     /**
-     * @param NetworkDeviceGroup|object|array $dev
-     * @param bool                            $hydrate If true, fetch the newly created object and return it instead of the ID string
+     * @param NetworkDeviceGroup|array $dev
+     * @param bool                     $hydrate If true, fetch the newly created object and return it instead of the ID string
      *
-     * @return NetworkDeviceGroup|string|null if $hydrate is true then NetworkDeviceGroup else ID string
-     * @throws ISEError on failure
+     * @return bool|SearchResult|string|null if $hydrate is true then NetworkDeviceGroup else ID string
+     * @throws ISEError|Exception on failure
      */
-    public function createNetworkDeviceGroup($dev, $hydrate = false)
+    public function createNetworkDeviceGroup(NetworkDeviceGroup|array $dev, bool $hydrate = false): SearchResult|bool|string|null
     {
         return $this->doCreate($dev, NetworkDeviceGroup::class, NetworkDeviceGroup::CONFIG_URI, NetworkDeviceGroup::JSON_ROOT_KEY, $hydrate);
     }
 
     /**
-     * @param NetworkDeviceGroup|object|string $dev
+     * @param NetworkDeviceGroup|string $dev
      *
      * @return bool True on success
      */
-    public function deleteNetworkDeviceGroup($dev): bool
+    public function deleteNetworkDeviceGroup(NetworkDeviceGroup|string $dev): bool
     {
         return $this->doDelete($dev, NetworkDeviceGroup::CONFIG_URI);
     }
 
     /**
-     * @param EndPoint|object|array $ep
-     * @param bool                  $hydrate If true, fetch the newly created object and return it instead of the ID string
+     * @param EndPoint|array $ep
+     * @param bool           $hydrate If true, fetch the newly created object and return it instead of the ID string
      *
-     * @return EndPoint|string|null if $hydrate is true then EndPoint else ID string
-     * @throws ISEError on failure
+     * @return bool|SearchResult|string|null if $hydrate is true then EndPoint else ID string
+     * @throws ISEError|Exception on failure
      */
-    public function createEndPoint($ep, $hydrate = false)
+    public function createEndPoint(EndPoint|array $ep, bool $hydrate = false): EndPoint|bool|string|null
     {
         return $this->doCreate($ep, EndPoint::class, EndPoint::CONFIG_URI, EndPoint::JSON_ROOT_KEY, $hydrate);
     }
 
     /**
-     * @param EndPoint|object|array $ep
+     * @param EndPoint|array $ep
      *
      * @return bool
-     * @throws ISEError on failure
+     * @throws ISEError|Exception on failure
      */
-    public function updateEndPoint($ep): bool
+    public function updateEndPoint(EndPoint|array $ep): bool
     {
         return $this->doUpdate($ep, EndPoint::class, EndPoint::CONFIG_URI, EndPoint::JSON_ROOT_KEY);
     }
 
     /**
-     * @param EndPoint|object|string $ep
+     * @param EndPoint|string $ep
      *
      * @return bool True on success
      */
-    public function deleteEndPoint($ep): bool
+    public function deleteEndPoint(EndPoint|string $ep): bool
     {
         return $this->doDelete($ep, EndPoint::CONFIG_URI);
     }
@@ -996,7 +958,7 @@ class CiscoISEClient
      *
      * @return string|bool Bulk ID if successful
      */
-    public function createEndPoints(array $list)
+    public function createEndPoints(array $list): bool|string
     {
         $this->doEndPointBulkRequest('create', $list);
         if ($this->httpStatus === 202) {
@@ -1014,7 +976,7 @@ class CiscoISEClient
      *
      * @return string|bool Bulk ID if successful
      */
-    public function deleteEndPoints(array $list)
+    public function deleteEndPoints(array $list): bool|string
     {
         $this->doEndPointBulkRequest('delete', $list);
         if ($this->httpStatus === 202) {
@@ -1029,11 +991,12 @@ class CiscoISEClient
      *
      * @param string $id ID or URL of bulk status
      *
-     * @return object|bool
+     * @return object|false|null
+     * @throws Exception
      */
-    public function getBulkStatus(string $id)
+    public function getBulkStatus(string $id): object|null|false
     {
-        if (false !== strpos($id, '/')) {
+        if (str_contains($id, '/')) {
             $parts = explode('/', $id);
             $id = end($parts);
         }
@@ -1049,7 +1012,7 @@ class CiscoISEClient
      * @param string   $op
      * @param object[] $endPoints
      *
-     * @return mixed
+     * @return object|null
      */
     public function doEndPointBulkRequest(string $op, array $endPoints): ?object
     {
@@ -1060,24 +1023,19 @@ class CiscoISEClient
         $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?><ns4:endpointBulkRequest xmlns:ns6="sxp.ers.ise.cisco.com" xmlns:ns5="trustsec.ers.ise.cisco.com" xmlns:ns8="network.ers.ise.cisco.com" xmlns:ns7="anc.ers.ise.cisco.com" xmlns:ers="ers.ise.cisco.com" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:ns4="identity.ers.ise.cisco.com"></ns4:endpointBulkRequest>');
         $xml->addAttribute('operationType', $op);
         $xml->addAttribute('resourceMediaType', 'vnd.com.cisco.ise.identity.endpoint.1.0+xml');
-        switch ($op) {
-            case 'create':
-                $data = $this->buildCreateEndPointData($xml, $endPoints);
-                break;
-            case 'delete':
-                $data = $this->buildDeleteEndPointData($xml, $endPoints);
-                break;
-            default:
-                throw new InvalidArgumentException("Invalid operation specified: \"$op\"");
-        }
+        $data = match ($op) {
+            'create' => $this->buildCreateEndPointData($xml, $endPoints),
+            'delete' => $this->buildDeleteEndPointData($xml, $endPoints),
+            default => throw new InvalidArgumentException("Invalid operation specified: \"$op\""),
+        };
         try {
             return $this->curl($ch, $data, 'xml');
-        } catch (Exception $e) {
+        } catch (Exception) {
             return null;
         }
     }
 
-    protected function buildCreateEndPointData(SimpleXMLElement $xml, $resources)
+    protected function buildCreateEndPointData(SimpleXMLElement $xml, $resources): string|array|null
     {
         $children = $xml->addChild('ns4:resourcesList');
         foreach ($resources as $r) {
@@ -1094,21 +1052,18 @@ class CiscoISEClient
                     continue;
                 }
                 $v = $r[$k];
-                switch (true) {
-                    case is_bool($v):
-                        $v = $v ? 'true' : 'false';
-                        break;
+                if (is_bool($v)) {
+                    $v = $v ? 'true' : 'false';
                 }
                 $c->addChild($k, $v, '');
             }
         }
         // cleanup some XML so the API won't complain
         $data = str_replace(' xmlns=""', '', $xml->asXML());
-        $data = preg_replace('~<(\w[\w\d_]+)/>~', '<\\1></\\1>', $data);
-        return $data;
+        return preg_replace('~<(\w[\w\d_]+)/>~', '<\\1></\\1>', $data);
     }
 
-    protected function buildDeleteEndPointData(SimpleXMLElement $xml, $resources)
+    protected function buildDeleteEndPointData(SimpleXMLElement $xml, $resources): string
     {
         $children = $xml->addChild('idList', null, '');
         foreach ($resources as $r) {
@@ -1158,11 +1113,12 @@ class CiscoISEClient
     /**
      * Fetch a list of endpoint identity groups.
      *
-     * @param array $params
+     * @param array|null $params
      *
-     * @return SearchResult
+     * @return object|null
+     * @throws Exception
      */
-    public function getIdentityGroups($params = null)
+    public function getIdentityGroups(?array $params = null): ?object
     {
         $url = $this->buildUrl('config/identitygroup', $params);
         return $this->curl($url);
@@ -1171,7 +1127,7 @@ class CiscoISEClient
     /**
      * Return the last HTTP code received
      *
-     * @return int
+     * @return int|null
      */
     public function getHttpStatus(): ?int
     {
@@ -1186,6 +1142,8 @@ class CiscoISEClient
      * @param object|null $obj
      *
      * @return object|null
+     * @throws Exception
+     * @throws Exception
      */
     public function hydrate(?object $obj): ?object
     {
@@ -1199,14 +1157,14 @@ class CiscoISEClient
     /**
      * Set a default parameter to be sent on all requests
      *
-     * @param string $name  Name of default to set. If NULL all defaults are cleared
-     * @param mixed  $value Value of default.
+     * @param string|null $name  Name of default to set. If NULL all defaults are cleared
+     * @param mixed|null  $value Value of default.
      *
      * @return $this
      */
-    public function setDefault(string $name, $value = null): self
+    public function setDefault(?string $name, mixed $value = null): self
     {
-        if ($name === null || $name === false) {
+        if ($name === null) {
             $this->defaults = [];
         } else {
             $this->defaults[$name] = $value;
@@ -1261,22 +1219,18 @@ class CiscoISEClient
     /**
      * Attempt to find the "id" in the parameter. could be a class, object, array...
      *
-     * @param mixed $obj
+     * @param mixed $subject
      *
      * @return string|null
      */
-    protected function extractId($obj): ?string
+    protected function extractId(mixed $subject): ?string
     {
-        switch (true) {
-            case $obj instanceof ObjectInterface:
-                return $obj->getId();
-            case is_array($obj):
-                return isset($obj['id']) ? $obj['id'] : null;
-            case is_string($obj) || is_int($obj):
-                // assume the object is just a string ID
-                return (string)$obj;
-        }
-        return null;
+        return match (true) {
+            $subject instanceof ObjectInterface => $subject->getId(),
+            is_array($subject) => $subject['id'] ?? null,
+            is_string($subject) || is_int($subject) => (string)$subject,
+            default => null,
+        };
     }
 
     /**
@@ -1288,12 +1242,10 @@ class CiscoISEClient
      */
     private function mapTypeToClass(string $type): string
     {
-        switch ($type) {
-            case 'ERSEndPoint':
-                return 'EndPoint';
-            case 'ErsAncPolicy':
-                return 'AncPolicy';
-        }
-        return $type;
+        return match ($type) {
+            'ERSEndPoint' => 'EndPoint',
+            'ErsAncPolicy' => 'AncPolicy',
+            default => $type,
+        };
     }
 }
